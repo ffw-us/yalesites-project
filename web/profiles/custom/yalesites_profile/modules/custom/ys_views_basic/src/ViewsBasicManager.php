@@ -303,7 +303,17 @@ class ViewsBasicManager extends ControllerBase implements ContainerInjectionInte
      * End setting dynamic arguments.
      */
 
+    $view->filter_settings = [
+      'title' => $paramsDecoded['search_by_keyword'] ?? FALSE,
+    ];
+
     $view->execute();
+
+    $hide_all_filters = !array_filter($view->filter_settings);
+    // Remove the exposed filters.
+    if ($hide_all_filters) {
+      $view->exposed_widgets = [];
+    }
 
     // Unset the pager. Needs to be done after view->execute();
     if ($paramsDecoded['display'] != "pager") {
@@ -452,6 +462,10 @@ class ViewsBasicManager extends ControllerBase implements ContainerInjectionInte
 
       case 'event_time_period':
         $defaultParam = (empty($paramsDecoded['filters']['event_time_period'])) ? 'future' : $paramsDecoded['filters']['event_time_period'];
+        break;
+
+      case 'search_by_keyword':
+        $defaultParam = (empty($paramsDecoded['search_by_keyword'])) ? FALSE : $paramsDecoded['search_by_keyword'];
         break;
 
       default:

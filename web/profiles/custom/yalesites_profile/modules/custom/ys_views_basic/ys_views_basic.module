@@ -5,6 +5,8 @@
  * Contains ys_views_basic.module functions.
  */
 
+use Drupal\Core\Form\FormStateInterface;
+
 /**
  * Implements hook_theme().
  */
@@ -68,5 +70,23 @@ function ys_views_basic_views_pre_build($view) {
 
   if (empty($view->dom_id)) {
     $view->dom_id = "view_" . $counter++;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for views_exposed_form.
+ */
+function ys_views_basic_form_views_exposed_form_alter(&$form, FormStateInterface $form_state) {
+  /** @var \Drupal\views\ViewExecutable $view */
+  $view = $form_state->get('view');
+
+  if ($view->id() == 'views_basic_scaffold' && $view->current_display == 'block_1') {
+    // Retrieve filter settings from the view or form state.
+    $filter_settings = $view->filter_settings ?? NULL;
+
+    // Update form access based on filter settings.
+    if (isset($form['title'])) {
+      $form['title']['#access'] = (bool) $filter_settings['title'];
+    }
   }
 }

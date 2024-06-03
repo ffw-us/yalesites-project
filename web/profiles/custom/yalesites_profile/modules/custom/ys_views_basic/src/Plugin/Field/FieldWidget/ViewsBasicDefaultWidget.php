@@ -291,6 +291,13 @@ class ViewsBasicDefaultWidget extends WidgetBase implements ContainerFactoryPlug
       ],
     ];
 
+    $form['group_user_selection']['filter_and_sort']['search_by_keyword'] = [
+      '#type' => 'checkbox',
+      '#description' => $this->t('Enable this option to add an exposed filter to the view, allowing users to search for content by title keywords.'),
+      '#title' => $this->t('Enable search by keyword'),
+      '#default_value' => ($items[$delta]->params) ? $this->viewsBasicManager->getDefaultParamValue('search_by_keyword', $items[$delta]->params) : FALSE,
+    ];
+
     $form['group_user_selection']['options']['display'] = [
       '#type' => 'select',
       '#title' => $this
@@ -372,6 +379,7 @@ class ViewsBasicDefaultWidget extends WidgetBase implements ContainerFactoryPlug
           "event_time_period" => $form['group_user_selection']['entity_specific']['event_time_period']['#value'],
         ],
         "operator" => $form['group_user_selection']['filter_and_sort']['term_operator']['#value'],
+        "search_by_keyword" => $form['group_user_selection']['filter_and_sort']['search_by_keyword']['#value'],
         "sort_by" => $form_state->getValue($formSelectors['sort_by_array']),
         "display" => $form_state->getValue($formSelectors['display_array']),
         "limit" => (int) $form_state->getValue($formSelectors['limit_array']),
