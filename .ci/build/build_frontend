@@ -56,5 +56,3 @@ cd "$GITHUB_WORKSPACE"
 
 # Cut the gitignore file so themes can be committed.
 terminus build:gitignore:cut
-
-# TODO: Remove this comment. (Testing to see if changes in CI folder end up in pull requests from this fork)
