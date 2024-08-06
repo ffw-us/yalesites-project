@@ -16,7 +16,7 @@ echo /composer.lock >> .git/info/exclude
 cd "$GITHUB_WORKSPACE"/web/profiles/custom/yalesites_profile
 
 # Require the branch version of atomic if it exists.
-if [ -n "$(git ls-remote --heads https://github.com/yalesites-org/atomic.git "$BRANCH")" ]; then
+if [ -n "$(git ls-remote --heads https://github.com/ffw-us/yale-atomic.git "$BRANCH")" ]; then
   composer require --prefer-dist --no-update yalesites-org/atomic:dev-"$BRANCH"
 fi
 
@@ -25,13 +25,13 @@ rm -rf "${GITHUB_WORKSPACE:?}"/"$ATOMIC_PATH"
 composer update --prefer-dist
 
 # Set branch to latest release if current branch is not in component library.
-if [ -z "$(git ls-remote --heads https://github.com/yalesites-org/component-library-twig.git "$BRANCH")" ]; then
-  BRANCH=$(curl -s https://api.github.com/repos/yalesites-org/component-library-twig/releases/latest | jq -r '.tag_name')
+if [ -z "$(git ls-remote --heads https://github.com/ffw-us/yale-component-library-twig.git "$BRANCH")" ]; then
+  BRANCH=$(curl -s https://api.github.com/repos/ffw-us/yale-component-library-twig/releases/latest | jq -r '.tag_name')
 fi
 
 # Clone and build the component library.
 cd /tmp
-git clone --single-branch --branch "$BRANCH" https://github.com/yalesites-org/component-library-twig && cd component-library-twig
+git clone --single-branch --branch "$BRANCH" https://github.com/ffw-us/yale-component-library-twig && cd yale-component-library-twig
 rm -rf .git
 npm ci --omit=dev --ignore-scripts
 npm install webpack-cli
