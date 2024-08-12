@@ -33,6 +33,26 @@ function ys_starterkit_uninstall() {
  */
 function ys_starterkit_update_9001() {
   // Adds starter taxonomy terms.
+  _ys_starterkit_adds_starter_taxonomy_terms();
+}
+
+/**
+ * Implements hook_update().
+ */
+function ys_starterkit_update_9002() {
+  // Adds starter taxonomy terms.
+  _ys_starterkit_adds_starter_taxonomy_terms();
+}
+
+/**
+ * Adds starter taxonomy terms.
+ *
+ * This helper function checks if the system is not currently syncing
+ * configuration. If not, it creates and runs a migration instance to
+ * import taxonomy terms using the 'ys_terms' migration.
+ */
+function _ys_starterkit_adds_starter_taxonomy_terms(): void {
+  // Check if the system is not syncing configurations.
   if (!\Drupal::service('config.installer')->isSyncing()) {
     $migration = \Drupal::service('plugin.manager.migration')->createInstance('ys_terms');
     $executable = new MigrateExecutable($migration, new MigrateMessage());
