@@ -160,6 +160,16 @@
         "unique_id": 32,
         "vocabulary": "affiliation",
         "name": "Alumni"
+      },
+      {
+        "unique_id": 33,
+        "vocabulary": "page_category",
+        "name": "Programs"
+      },
+      {
+        "unique_id": 34,
+        "vocabulary": "page_category",
+        "name": "Resources"
       }
     ]
   }

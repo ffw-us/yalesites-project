@@ -39,3 +39,11 @@ function ys_starterkit_update_9001() {
     $executable->import();
   }
 }
+
+/**
+ * Implements hook_update().
+ */
+function ys_starterkit_update_9002() {
+  // Reimport starter taxonomy terms by calling the previous update function.
+  ys_starterkit_update_9001();
+}
