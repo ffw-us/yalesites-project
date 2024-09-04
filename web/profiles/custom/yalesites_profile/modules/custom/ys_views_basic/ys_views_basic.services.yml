@@ -6,4 +6,4 @@ services:
 
   ys_views_basic.events_calendar:
     class: Drupal\ys_views_basic\Service\EventsCalendar
-    arguments: ['@date.formatter', '@entity_type.manager', '@path_alias.manager']
+    arguments: ['@entity_type.manager', '@path_alias.manager']

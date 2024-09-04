@@ -131,7 +131,7 @@ class ViewsBasicDefaultFormatter extends FormatterBase implements ContainerFacto
 
       if ($paramsDecoded['filters']['types'][0] === 'event' && $paramsDecoded['view_mode'] === 'calendar') {
         $events_calendar = $this->eventsCalendar
-          ->prepareCalendarView(date('m'), date('Y'));
+          ->getCalendar(date('m'), date('Y'));
 
         $elements[$delta] = [
           '#theme' => 'views_basic_events_calendar',

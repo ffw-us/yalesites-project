@@ -3,7 +3,6 @@
 namespace Drupal\ys_views_basic\Service;
 
 use Drupal\Component\DependencyInjection\ContainerInterface;
-use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -14,13 +13,6 @@ use Drupal\smart_date_recur\Entity\SmartDateRule;
  * Provides an Event Calendar service for generating calendar views.
  */
 class EventsCalendar implements EventsCalendarInterface {
-
-  /**
-   * The date formatter service.
-   *
-   * @var \Drupal\Core\Datetime\DateFormatterInterface
-   */
-  protected DateFormatterInterface $dateFormatter;
 
   /**
    * The entity type manager service.
@@ -46,19 +38,15 @@ class EventsCalendar implements EventsCalendarInterface {
   /**
    * Constructs a EventsCalendar object.
    *
-   * @param \Drupal\Core\Datetime\DateFormatterInterface $date_formatter
-   *   The date formatter service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager service.
    * @param \Drupal\path_alias\AliasManagerInterface $alias_manager
    *   The path alias manager.
    */
   public function __construct(
-    DateFormatterInterface $date_formatter,
     EntityTypeManagerInterface $entity_type_manager,
     AliasManagerInterface $alias_manager,
   ) {
-    $this->dateFormatter = $date_formatter;
     $this->entityTypeManager = $entity_type_manager;
     $this->aliasManager = $alias_manager;
     $this->nodeStorage = $entity_type_manager->getStorage('node');
@@ -69,7 +57,6 @@ class EventsCalendar implements EventsCalendarInterface {
    */
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('date.formatter'),
       $container->get('entity_type.manager'),
       $container->get('path_alias.manager')
     );
@@ -78,7 +65,7 @@ class EventsCalendar implements EventsCalendarInterface {
   /**
    * {@inheritdoc}
    */
-  public function prepareCalendarView(string $month, string $year): array {
+  public function getCalendar(string $month, string $year): array {
     // Create a date object for the first day of the given month and year.
     $firstDayOfMonth = new DrupalDateTime("$year-$month-01");
     $totalDaysInMonth = (int) $firstDayOfMonth->format('t');
@@ -105,6 +92,9 @@ class EventsCalendar implements EventsCalendarInterface {
     $nextMonth = $nextMonthDate->format('m');
     $nextYear = $nextMonthDate->format('Y');
 
+    // Load all events for the given month and year.
+    $monthlyEvents = $this->loadMonthlyEvents($month, $year);
+
     $currentDay = 1;
 
     for ($row = 0; $row < $totalRows; $row++) {
@@ -113,16 +103,16 @@ class EventsCalendar implements EventsCalendarInterface {
         if ($row == 0 && $cell < $paddingStart) {
           // Fill in days from the previous month.
           $day = $daysInPreviousMonth - ($paddingStart - $cell - 1);
-          $calendarRows[$row][] = $this->createCalendarCell($day, $previousMonth, $previousYear);
+          $calendarRows[$row][] = $this->createCalendarCell($day, $previousMonth, $previousYear, $monthlyEvents);
         }
         elseif ($row == $totalRows - 1 && $cell > $endDayOfWeek) {
           // Fill in days from the next month.
           $day = $cell - $endDayOfWeek;
-          $calendarRows[$row][] = $this->createCalendarCell($day, $nextMonth, $nextYear);
+          $calendarRows[$row][] = $this->createCalendarCell($day, $nextMonth, $nextYear, $monthlyEvents);
         }
         else {
           // Normal date cell within the current month.
-          $calendarRows[$row][] = $this->createCalendarCell($currentDay, $month, $year);
+          $calendarRows[$row][] = $this->createCalendarCell($currentDay, $month, $year, $monthlyEvents);
           $currentDay++;
         }
       }
@@ -134,54 +124,36 @@ class EventsCalendar implements EventsCalendarInterface {
   /**
    * {@inheritdoc}
    */
-  public function createCalendarCell(int $day, string $month, string $year): array {
+  public function createCalendarCell(int $day, string $month, string $year, array $events): array {
     return [
       'date' => [
         'day' => str_pad($day, 2, '0', STR_PAD_LEFT),
         'month' => $month,
         'year' => $year,
       ],
-      'events' => $this->getEvents($day, $month, $year),
+      'events' => $this->getEvents($day, $month, $year, $events),
     ];
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getEvents(int $day, string $month, string $year): array {
-    // Create DrupalDateTime objects for the start and end of the day.
+  public function getEvents(int $day, string $month, string $year, array $events): array {
     $startDate = new DrupalDateTime("$year-$month-$day 00:00:00");
     $endDate = new DrupalDateTime("$year-$month-$day 23:59:59");
 
     $startTimestamp = $startDate->getTimestamp();
     $endTimestamp = $endDate->getTimestamp();
 
-    // Query to fetch event nodes that overlap with the current day.
-    $query = $this->nodeStorage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'event')
-      ->condition('status', 1)
-      ->condition('field_event_date.value', $endTimestamp, '<=')
-      ->condition('field_event_date.end_value', $startTimestamp, '>=')
-      ->sort('field_event_date.value');
-
-    $nids = $query->execute();
-    /** @var \Drupal\node\NodeInterface[] $nodes */
-    $nodes = $this->nodeStorage->loadMultiple($nids);
-    if ($day == 8) {
-      $a=1;
-    }
-    $events = [];
-    foreach ($nodes as $node) {
-      if (!$node->get('field_event_date')->isEmpty()) {
-        $eventDates = $node->get('field_event_date')->getValue();
-
+    $events_data = [];
+    foreach ($events as $event) {
+      if (!$event->get('field_event_date')->isEmpty()) {
         // Handle recurrence rules if present.
-        if ($node->field_event_date?->rrule) {
+        if ($event->field_event_date?->rrule) {
 
           /** @var \Drupal\smart_date_recur\Entity\SmartDateRule $rule */
           $rule = $this->entityTypeManager->getStorage('smart_date_rule')
-            ->load($node->field_event_date->rrule);
+            ->load($event->field_event_date->rrule);
 
           if ($rule instanceof SmartDateRule) {
             // Iterate over the stored instances to find occurrences for the
@@ -196,14 +168,14 @@ class EventsCalendar implements EventsCalendarInterface {
                   ? 'All Day'
                   : date('g:iA', $instanceStartTimestamp) . ' to ' . date('g:iA', $instanceEndTimestamp);
 
-                $events[] = $this->createEventArray($node, $time, $instanceStartTimestamp);
+                $events_data[] = $this->createEventArray($event, $time, $instanceStartTimestamp);
               }
             }
           }
         }
         else {
           // Iterate through the nodes to extract event details.
-          foreach ($eventDates as $eventDate) {
+          foreach ($event->get('field_event_date')->getValue() as $eventDate) {
             $eventStartTimestamp = $eventDate['value'];
             $eventEndTimestamp = $eventDate['end_value'];
 
@@ -214,7 +186,7 @@ class EventsCalendar implements EventsCalendarInterface {
                 : date('g:iA', $eventStartTimestamp) . ' to ' . date('g:iA', $eventEndTimestamp);
 
               // Add event to the list if it overlaps with the current day.
-              $events[] = $this->createEventArray($node, $time, $eventStartTimestamp);
+              $events_data[] = $this->createEventArray($event, $time, $eventStartTimestamp);
             }
           }
         }
@@ -222,26 +194,26 @@ class EventsCalendar implements EventsCalendarInterface {
     }
 
     // Sort events by the start timestamp.
-    usort($events, function ($a, $b) {
+    usort($events_data, function ($a, $b) {
       return $a['timestamp'] <=> $b['timestamp'];
     });
 
-    return $events;
+    return $events_data;
   }
 
   /**
    * {@inheritdoc}
    */
   public function createEventArray($node, string $time, int $timestamp): array {
-    // Extract categories from the event node.
-    $categories = implode(', ', array_map(function ($term) {
+    // Extract the event's categories.
+    $categories = implode(' | ', array_map(function ($term) {
       return $term->label();
     }, $node->get('field_category')->referencedEntities()));
 
-    // Extract event types from the event node.
-    $eventTypes = implode(', ', array_map(function ($term) {
+    // Extract the event's tags.
+    $tags = implode(' | ', array_map(function ($term) {
       return $term->label();
-    }, $node->get('field_localist_event_type')->referencedEntities()));
+    }, $node->get('field_tags')->referencedEntities()));
 
     // Build and return the event array.
     return [
@@ -249,7 +221,7 @@ class EventsCalendar implements EventsCalendarInterface {
       'title' => $node->label(),
       'url' => $this->aliasManager->getAliasByPath('/node/' . $node->id()),
       'time' => $time,
-      'type' => $eventTypes,
+      'type' => $tags,
       'timestamp' => $timestamp,
     ];
   }
@@ -271,6 +243,26 @@ class EventsCalendar implements EventsCalendarInterface {
     }
 
     return $temp_start == '00:00' && $temp_end == '23:59';
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function loadMonthlyEvents(string $month, string $year): array {
+    $startDate = new DrupalDateTime("$year-$month-01 00:00:00");
+    $endDate = clone $startDate;
+    $endDate->modify('last day of this month 23:59:59');
+
+    // Query to fetch event nodes that overlap with the given month.
+    $query = $this->nodeStorage->getQuery()
+      ->accessCheck()
+      ->condition('type', 'event')
+      ->condition('status', 1)
+      ->condition('field_event_date.value', $endDate->getTimestamp(), '<=')
+      ->condition('field_event_date.end_value', $startDate->getTimestamp(), '>=');
+
+    $nids = $query->execute();
+    return $this->nodeStorage->loadMultiple($nids);
   }
 
 }
